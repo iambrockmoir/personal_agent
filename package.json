@@ -1,0 +1,27 @@
+{
+  "name": "personal-agent",
+  "version": "0.1.0",
+  "description": "An AI-powered personal agent that helps automate tasks and enhance productivity",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "jest",
+    "dev": "nodemon index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/iambrockmoir/personal_agent.git"
+  },
+  "author": "Brock Moir",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/iambrockmoir/personal_agent/issues"
+  },
+  "homepage": "https://github.com/iambrockmoir/personal_agent#readme",
+  "dependencies": {
+  },
+  "devDependencies": {
+    "jest": "^29.0.0",
+    "nodemon": "^3.0.0"
+  }
+} 
