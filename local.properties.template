@@ -1,0 +1,18 @@
+## This file must *NOT* be checked into Version Control Systems,
+# as it contains information specific to your local configuration.
+#
+# Location of the SDK. This is only used by Gradle.
+# For customization when using a Version Control System, please read the
+# header note.
+
+# Android SDK location
+sdk.dir=/path/to/your/Android/sdk
+ndk.dir=/path/to/your/Android/sdk/ndk
+
+# API Keys and Configuration
+OPENAI_API_KEY=your_openai_api_key
+OPENAI_PROJECT_ID=your_openai_project_id
+PINECONE_API_KEY=your_pinecone_api_key
+PINECONE_INDEX=your_pinecone_index
+PINECONE_ENVIRONMENT=your_pinecone_environment
+PINECONE_HOST_URL=your_pinecone_host_url 

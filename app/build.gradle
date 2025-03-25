@@ -1,0 +1,151 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+    id 'com.google.devtools.ksp'
+}
+
+android {
+    namespace 'com.personal.voicememo'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.personal.voicememo"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+
+        // Read API keys from local.properties (or gradle.properties)
+        def properties = new Properties()
+        properties.load(project.rootProject.file('local.properties').newDataInputStream())
+        def OPENAI_API_KEY = properties.getProperty('OPENAI_API_KEY', '')
+        def PINECONE_API_KEY = properties.getProperty('PINECONE_API_KEY', '')
+        def PINECONE_INDEX = properties.getProperty('PINECONE_INDEX', '')
+        def PINECONE_ENVIRONMENT = properties.getProperty('PINECONE_ENVIRONMENT', '')
+        def OPENAI_PROJECT_ID = properties.getProperty('OPENAI_PROJECT_ID', '')
+        def PINECONE_HOST_URL = properties.getProperty('PINECONE_HOST_URL', '')
+
+        buildConfigField "String", "OPENAI_API_KEY", "\"${OPENAI_API_KEY}\""
+        buildConfigField "String", "PINECONE_API_KEY", "\"${PINECONE_API_KEY}\""
+        buildConfigField "String", "PINECONE_INDEX", "\"${PINECONE_INDEX}\""
+        buildConfigField "String", "PINECONE_ENVIRONMENT", "\"${PINECONE_ENVIRONMENT}\""
+        buildConfigField "String", "OPENAI_PROJECT_ID", "\"${OPENAI_PROJECT_ID}\""
+        buildConfigField "String", "PINECONE_HOST_URL", "\"${PINECONE_HOST_URL}\""
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        vectorDrawables {
+            useSupportLibrary true
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    
+    compileOptions {
+        sourceCompatibility rootProject.ext.java_version
+        targetCompatibility rootProject.ext.java_version
+    }
+    
+    kotlinOptions {
+        jvmTarget = rootProject.ext.java_version.toString()
+    }
+    
+    buildFeatures {
+        compose true
+    }
+    
+    composeOptions {
+        kotlinCompilerExtensionVersion rootProject.ext.compose_compiler_version
+    }
+    
+    packaging {
+        resources {
+            excludes += '/META-INF/{AL2.0,LGPL2.1}'
+            pickFirsts += 'META-INF/gradle/incremental.annotation.processors'
+        }
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+
+    testOptions {
+        unitTests {
+            includeAndroidResources = true
+        }
+    }
+}
+
+dependencies {
+    def room_version = "2.6.1"
+    def compose_bom_version = "2024.02.00"
+    def arch_version = "2.2.0"
+
+    implementation 'androidx.core:core-ktx:1.12.0'
+    implementation platform("org.jetbrains.kotlin:kotlin-bom:${rootProject.ext.kotlin_version}")
+    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.7.0'
+    implementation 'androidx.activity:activity-compose:1.8.2'
+    
+    // Compose
+    implementation platform("androidx.compose:compose-bom:$compose_bom_version")
+    implementation 'androidx.compose.ui:ui'
+    implementation 'androidx.compose.ui:ui-graphics'
+    implementation 'androidx.compose.ui:ui-tooling-preview'
+    implementation 'androidx.compose.material3:material3'
+    implementation 'androidx.compose.material:material-icons-extended'
+    implementation 'androidx.compose.runtime:runtime'
+    implementation 'androidx.compose.runtime:runtime-livedata'
+    implementation 'androidx.compose.foundation:foundation'
+    
+    // Security
+    implementation "androidx.security:security-crypto:1.1.0-alpha06"
+    
+    // Room
+    implementation "androidx.room:room-runtime:$room_version"
+    implementation "androidx.room:room-ktx:$room_version"
+    ksp "androidx.room:room-compiler:$room_version"
+    
+    // Retrofit for network calls
+    implementation 'com.squareup.retrofit2:retrofit:2.9.0'
+    implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
+    implementation 'com.squareup.okhttp3:logging-interceptor:4.11.0'
+    
+    // Coroutines
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3'
+    
+    // ViewModel
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0'
+    implementation 'androidx.lifecycle:lifecycle-runtime-compose:2.7.0'
+    
+    // Dagger
+    implementation 'com.google.dagger:dagger:2.50'
+    ksp 'com.google.dagger:dagger-compiler:2.50'
+    
+    // Testing
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.jetbrains.kotlin:kotlin-test:1.9.22'
+    testImplementation 'org.jetbrains.kotlin:kotlin-test-junit:1.9.22'
+    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3'
+    testImplementation 'io.mockk:mockk:1.13.8'
+    testImplementation 'org.mockito:mockito-core:5.3.1'
+    testImplementation 'org.mockito.kotlin:mockito-kotlin:5.1.0'
+    testImplementation 'com.google.truth:truth:1.1.5'
+    testImplementation "androidx.arch.core:core-testing:$arch_version"
+    testImplementation 'org.robolectric:robolectric:4.11.1'
+    
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+    androidTestImplementation platform('androidx.compose:compose-bom:2023.08.00')
+    androidTestImplementation 'androidx.compose.ui:ui-test-junit4'
+    androidTestImplementation 'io.mockk:mockk-android:1.13.8'
+    androidTestImplementation "androidx.arch.core:core-testing:$arch_version"
+    
+    debugImplementation 'androidx.compose.ui:ui-tooling'
+    debugImplementation 'androidx.compose.ui:ui-test-manifest'
+} 
