@@ -112,4 +112,3 @@ This project aims to build a simple Android app for recording voice memos, trans
 - [ ] Implement proper audio format validation and conversion if needed
 - [ ] Add support for different audio quality settings
 - [ ] Implement proper handling of device storage space warnings
-- [ ] After saving todos to Google Sheets, return to the transcripts listing
