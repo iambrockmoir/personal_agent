@@ -46,7 +46,16 @@ fun MainContent(viewModel: VoiceMemoViewModel) {
                 )
             }
             composable(Screen.Todo.route) {
-                TodoScreen(transcript = currentTranscript)
+                TodoScreen(
+                    transcript = currentTranscript,
+                    onSaveComplete = {
+                        // Navigate back to the VoiceMemo screen after saving todos
+                        navController.navigate(Screen.VoiceMemo.route) {
+                            // Pop up to the VoiceMemo screen, removing the Todo screen from the back stack
+                            popUpTo(Screen.VoiceMemo.route) { inclusive = false }
+                        }
+                    }
+                )
             }
         }
     }

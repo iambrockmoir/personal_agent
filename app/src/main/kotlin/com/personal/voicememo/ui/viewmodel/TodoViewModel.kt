@@ -7,6 +7,7 @@ import com.personal.voicememo.domain.TodoItem
 import com.personal.voicememo.domain.TodoList
 import com.personal.voicememo.service.TodoService
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -123,6 +124,9 @@ class TodoViewModel @Inject constructor(
                 val success = todoService.saveTodoList(TodoList(_todos.value))
                 if (success) {
                     _uiState.value = TodoUiState.Success
+                    // Reset the UI state after a short delay to ensure the navigation callback is triggered
+                    delay(500)
+                    _uiState.value = TodoUiState.Initial
                 } else {
                     _uiState.value = TodoUiState.Error("Failed to save todos")
                 }

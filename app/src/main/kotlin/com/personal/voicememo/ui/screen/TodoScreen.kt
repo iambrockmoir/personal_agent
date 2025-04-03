@@ -22,6 +22,7 @@ import com.personal.voicememo.ui.viewmodel.TodoUiState
  * 
  * @param transcript Optional transcript text to extract todos from
  * @param viewModel The ViewModel that manages the state and business logic for todos
+ * @param onSaveComplete Callback function that is called when todos are successfully saved
  * @param modifier Modifier to be applied to the layout
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -29,6 +30,7 @@ import com.personal.voicememo.ui.viewmodel.TodoUiState
 fun TodoScreen(
     transcript: String? = null,
     viewModel: TodoViewModel = hiltViewModel(),
+    onSaveComplete: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -37,6 +39,13 @@ fun TodoScreen(
     // Extract todos from transcript when it changes
     LaunchedEffect(transcript) {
         transcript?.let { viewModel.extractTodos(it) }
+    }
+
+    // Navigate back when todos are successfully saved
+    LaunchedEffect(uiState) {
+        if (uiState is TodoUiState.Success && todos.isNotEmpty()) {
+            onSaveComplete()
+        }
     }
 
     Scaffold(
