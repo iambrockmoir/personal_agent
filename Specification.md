@@ -98,8 +98,7 @@ This project aims to build a simple Android app for recording voice memos, trans
 - [ ] Implement proper text-to-vector conversion (convertTextToVector) in the repository's saveToVectorDB flow. (Currently stubbed behavior.)
 - [x] Ensure proper management and cleanup of temporary audio files after either the 'Keep' or 'Delete' actions. (File deletions are implemented in the UI and in the Application onTerminate.)
 - [ ] Expand unit and integration tests to cover error scenarios and validate the complete voice memo flow (record, prompt, transcribe, and save). (Some unit tests exist; further integration tests can be added.)
-- [ ] Add functionality for a brief summary of the transcription to be displayed in the UI.
-- [ ] Add functionality for a "chat" interface to allow the user to ask questions of their memos.
+- [ ] Add functionality for a "chat" interface to allow the user to interact with their ideas
 - [ ] Add functionality to organize groups of memos into collections
 - [ ] Implement offline support using NetworkBoundResource for better offline-first experience
 - [ ] Add UI tests with Espresso for critical user flows
@@ -108,7 +107,4 @@ This project aims to build a simple Android app for recording voice memos, trans
 - [ ] Implement proper error state management in the UI (e.g., retry buttons for failed operations)
 - [ ] Add analytics to track usage patterns and error rates
 - [ ] Implement proper cleanup of old recordings and transcripts to manage storage space
-- [ ] Add export functionality for memos (e.g., as text files or PDFs)
-- [ ] Implement proper audio format validation and conversion if needed
-- [ ] Add support for different audio quality settings
 - [ ] Implement proper handling of device storage space warnings
