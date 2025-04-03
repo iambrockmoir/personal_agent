@@ -3,14 +3,11 @@ package com.personal.voicememo
 import android.app.Application
 import android.content.Context
 import android.util.Log
-import com.personal.voicememo.di.AppComponent
-import com.personal.voicememo.di.DaggerAppComponent
+import dagger.hilt.android.HiltAndroidApp
 import java.io.File
 
+@HiltAndroidApp
 class VoiceMemoApplication : Application() {
-    lateinit var appComponent: AppComponent
-        private set
-
     lateinit var baseDir: File
         private set
 
@@ -25,11 +22,6 @@ class VoiceMemoApplication : Application() {
         
         instance = this
         setupStorageDirectory()
-        initializeDagger()
-    }
-
-    private fun initializeDagger() {
-        appComponent = DaggerAppComponent.factory().create(this)
     }
 
     private fun setupStorageDirectory() {

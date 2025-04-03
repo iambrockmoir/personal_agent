@@ -4,6 +4,8 @@ import com.personal.voicememo.config.ApiKeys
 import com.personal.voicememo.data.network.OpenAIService
 import com.personal.voicememo.data.network.PineconeNetworkService
 import com.personal.voicememo.data.network.WhisperService
+import com.personal.voicememo.network.GoogleSheetsService
+import android.content.Context
 import android.util.Log
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
@@ -11,8 +13,14 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import com.personal.voicememo.BuildConfig
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.api.client.googleapis.auth.oauth2.GoogleCredential
 import dagger.Module
 import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
 import javax.inject.Named
 import javax.inject.Singleton
 import javax.net.ssl.SSLContext
@@ -23,10 +31,17 @@ import java.security.KeyStore
 import java.security.cert.X509Certificate
 import java.util.concurrent.TimeUnit
 import okhttp3.HttpUrl
+import com.google.android.gms.auth.GoogleAuthUtil
+import okhttp3.MediaType
+import com.google.gson.GsonBuilder
+import okhttp3.ResponseBody.Companion.toResponseBody
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 
 @Module
+@InstallIn(SingletonComponent::class)
 object NetworkModule {
     private const val OPENAI_BASE_URL = "https://api.openai.com/v1/"
+    private const val GOOGLE_SHEETS_BASE_URL = "https://sheets.googleapis.com/"
     
     init {
         Log.e("NetworkModule", "=== Module Initialization ===")
@@ -175,15 +190,42 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    fun provideHttpLoggingInterceptor(): HttpLoggingInterceptor {
+        return HttpLoggingInterceptor().apply {
+            level = HttpLoggingInterceptor.Level.BODY
+        }
+    }
+
+    @Provides
+    @Singleton
+    fun provideOkHttpClient(loggingInterceptor: HttpLoggingInterceptor): OkHttpClient {
+        return OkHttpClient.Builder()
+            .addInterceptor(loggingInterceptor)
+            .build()
+    }
+
+    @Provides
+    @Singleton
     @Named("openai")
-    fun provideOpenAIRetrofit(): Retrofit {
+    fun provideOpenAIRetrofit(okHttpClient: OkHttpClient): Retrofit {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BODY
         }
 
-        val client = OkHttpClient.Builder()
-            .addInterceptor(createAuthInterceptor(ApiKeys.OPENAI_API_KEY))
+        val client = okHttpClient.newBuilder()
             .addInterceptor(loggingInterceptor)
+            .addInterceptor { chain ->
+                val originalRequest = chain.request()
+                val requestBuilder = originalRequest.newBuilder()
+                    .addHeader("Authorization", "Bearer ${BuildConfig.OPENAI_API_KEY}")
+
+                Log.d("NetworkModule", "Using OpenAI API key: ${BuildConfig.OPENAI_API_KEY.take(4)}****")
+                
+                val request = requestBuilder.build()
+                Log.d("NetworkModule", "Request Headers: ${request.headers}")
+
+                chain.proceed(request)
+            }
             .build()
 
         return Retrofit.Builder()
@@ -196,7 +238,7 @@ object NetworkModule {
     @Provides
     @Singleton
     @Named("pinecone")
-    fun providePineconeRetrofit(): Retrofit {
+    fun providePineconeRetrofit(okHttpClient: OkHttpClient): Retrofit {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BODY
         }
@@ -226,17 +268,114 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOpenAIService(@Named("openai") retrofit: Retrofit): OpenAIService =
-        retrofit.create(OpenAIService::class.java)
+    fun provideWhisperService(@Named("openai") retrofit: Retrofit): WhisperService {
+        return retrofit.create(WhisperService::class.java)
+    }
 
     @Provides
     @Singleton
-    fun provideWhisperService(@Named("openai") retrofit: Retrofit): WhisperService =
-        retrofit.create(WhisperService::class.java)
+    fun providePineconeNetworkService(@Named("pinecone") retrofit: Retrofit): PineconeNetworkService {
+        return retrofit.create(PineconeNetworkService::class.java)
+    }
 
     @Provides
     @Singleton
-    fun providePineconeNetworkService(
-        @Named("pinecone") retrofit: Retrofit
-    ): PineconeNetworkService = retrofit.create(PineconeNetworkService::class.java)
+    @Named("googleSheets")
+    fun provideGoogleSheetsRetrofit(
+        @ApplicationContext context: Context,
+        loggingInterceptor: HttpLoggingInterceptor
+    ): Retrofit {
+        val client = OkHttpClient.Builder()
+            .addInterceptor(loggingInterceptor)
+            .addInterceptor { chain ->
+                val account = GoogleSignIn.getLastSignedInAccount(context)
+                if (account == null) {
+                    Log.e("NetworkModule", "No Google Sign-In account found")
+                    // Instead of throwing, return a 401 response
+                    val response = okhttp3.Response.Builder()
+                        .request(chain.request())
+                        .protocol(okhttp3.Protocol.HTTP_1_1)
+                        .code(401)
+                        .message("No Google Sign-In account found")
+                        .body("{\"error\":{\"message\":\"No Google Sign-In account found. Please sign in first.\"}}".toResponseBody("application/json".toMediaTypeOrNull()))
+                        .build()
+                    return@addInterceptor response
+                }
+
+                val hasSheetScope = account.grantedScopes?.any { 
+                    it.scopeUri == "https://www.googleapis.com/auth/spreadsheets" 
+                } ?: false
+                
+                if (!hasSheetScope) {
+                    Log.e("NetworkModule", "Missing Google Sheets scope")
+                    // Instead of throwing, return a 401 response
+                    val response = okhttp3.Response.Builder()
+                        .request(chain.request())
+                        .protocol(okhttp3.Protocol.HTTP_1_1)
+                        .code(401)
+                        .message("Missing Google Sheets scope")
+                        .body("{\"error\":{\"message\":\"Missing Google Sheets permission. Please grant access to Google Sheets.\"}}".toResponseBody("application/json".toMediaTypeOrNull()))
+                        .build()
+                    return@addInterceptor response
+                }
+
+                try {
+                    val accountName = account.email ?: throw Exception("No email found in Google account")
+                    Log.d("NetworkModule", "Getting token for account: $accountName")
+                    
+                    // Get OAuth access token for Google Sheets API
+                    val accessToken = GoogleAuthUtil.getToken(
+                        context,
+                        accountName,
+                        "oauth2:https://www.googleapis.com/auth/spreadsheets"
+                    )
+                    
+                    Log.d("NetworkModule", "Successfully got OAuth access token")
+                    Log.d("NetworkModule", "Token length: ${accessToken.length}")
+                    Log.d("NetworkModule", "Token first 4 chars: ${accessToken.take(4)}")
+                    
+                    val newRequest = chain.request().newBuilder()
+                        .addHeader("Authorization", "Bearer $accessToken")
+                        .addHeader("Content-Type", "application/json")
+                        .build()
+                    
+                    Log.d("NetworkModule", "Request URL: ${newRequest.url}")
+                    Log.d("NetworkModule", "Authorization header present: ${newRequest.header("Authorization") != null}")
+                    
+                    chain.proceed(newRequest)
+                } catch (e: Exception) {
+                    Log.e("NetworkModule", "Error getting access token: ${e.message}")
+                    Log.e("NetworkModule", "Stack trace: ${e.stackTrace.joinToString("\n")}")
+                    
+                    // Return a 401 response
+                    val response = okhttp3.Response.Builder()
+                        .request(chain.request())
+                        .protocol(okhttp3.Protocol.HTTP_1_1)
+                        .code(401)
+                        .message("Failed to get access token")
+                        .body("{\"error\":{\"message\":\"Failed to get access token: ${e.message}\"}}".toResponseBody("application/json".toMediaTypeOrNull()))
+                        .build()
+                    return@addInterceptor response
+                }
+            }
+            .build()
+
+        return Retrofit.Builder()
+            .baseUrl(GOOGLE_SHEETS_BASE_URL)
+            .client(client)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+    }
+
+    @Provides
+    @Singleton
+    fun provideGoogleSheetsService(@Named("googleSheets") retrofit: Retrofit): GoogleSheetsService {
+        return retrofit.create(GoogleSheetsService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideOpenAIService(@Named("openai") retrofit: Retrofit): OpenAIService {
+        return retrofit.create(OpenAIService::class.java)
+    }
 } 

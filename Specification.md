@@ -1,5 +1,51 @@
 # Specification
 
+# Specification
+
+## Overview
+This project is an Android app that records voice memos, transcribes them using OpenAI Whisper, and stores the resulting text in Pinecone for indexing. Users can also discard recordings before transcription. The architecture is designed for an MVP primarily for personal use.
+
+### Existing Features
+- **Voice Memo Recording**: Record audio memos using the device microphone.
+- **Discard Option**: Allow users to delete recordings before transcription.
+- **Speech-to-Text Transcription**: Transcribe audio using OpenAI Whisper (or whisper.cpp for local inference).
+- **Data Storage**: Save transcriptions in Pinecone for later retrieval.
+- **MVP UI**: A minimal interface with essential controls for recording, transcribing, and saving.
+
+### New Feature: Find Todos
+This feature addresses the need to offload to-do items and document topics for further research. It allows the user to select a transcript and then have the system extract potential todo items along with time estimates.
+
+#### Flow:
+1. **Selection**: The user selects an existing transcript.
+2. **Extraction**: The transcript is sent to OpenAI with a prompt that requests extraction of potential todos and best time estimates.
+3. **JSON Response**: The response will be a JSON object in the following format:
+    ```json
+    { "todos": [ { "item": "Buy groceries", "timeEstimate": "30 minutes" }, ... ] }
+    ```
+4. **User Review**: The user can review, add, edit, or delete items from the suggested list.
+5. **Output**: The final todo list is recorded into a Google Sheet for later manual processing.
+6. **Navigation**: After saving todos to Google Sheets, the UI should return to the transcripts listing.
+
+#### Goals & Objectives (Updated)
+- **Record and Transcribe**: Continue capturing audio memos and converting them to text.
+- **Find Todos**: Enable the extraction of actionable todo items from transcribed text.
+- **User Interaction**: Allow the user to refine the extracted todos before finalizing.
+- **Manual Processing**: For the MVP, todos are output to a Google Sheet rather than being automatically indexed.
+
+#### Constraints
+- **Performance**: Must remain lightweight for use on a Pixel 3 device.
+- **API Costs**: Minimize expenses by relying on a single API call for todo extraction.
+- **Privacy & Control**: The user has full control to modify the extracted todos.
+
+#### Success Criteria
+- The app successfully extracts potential todos from a transcript using OpenAI.
+- The JSON structure for todos is correctly generated and presented.
+- Users can modify the list before sending it to the Google Sheet.
+- The final list is recorded in the designated Google Sheet for later processing.
+- After saving todos, the UI returns to the transcripts listing.
+
+
+**** Original Specification.md for reference ****
 ## Overview
 This project aims to build a simple Android app for recording voice memos, transcribing them using OpenAI Whisper, and saving the resulting text in Pinecone for indexing. Users should also be able to discard recordings before transcription if they don't wish to keep them.
 
@@ -40,6 +86,8 @@ This project aims to build a simple Android app for recording voice memos, trans
 - The transcribed text is stored in Pinecone for later retrieval or search.
 - Basic testing is in place to validate core functionality.
 
+****    ****
+
 ## Potential TODOS
 
 - [x] Enhance error handling in the transcription module (callWhisperAPI) to manage network timeouts and API failures. (Current implementation uses basic error messaging via handleError.)
@@ -64,3 +112,4 @@ This project aims to build a simple Android app for recording voice memos, trans
 - [ ] Implement proper audio format validation and conversion if needed
 - [ ] Add support for different audio quality settings
 - [ ] Implement proper handling of device storage space warnings
+- [ ] After saving todos to Google Sheets, return to the transcripts listing

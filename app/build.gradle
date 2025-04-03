@@ -2,6 +2,8 @@ plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
     id 'com.google.devtools.ksp'
+    id 'kotlin-kapt'
+    id 'com.google.dagger.hilt.android'
 }
 
 android {
@@ -24,6 +26,9 @@ android {
         def PINECONE_ENVIRONMENT = properties.getProperty('PINECONE_ENVIRONMENT', '')
         def OPENAI_PROJECT_ID = properties.getProperty('OPENAI_PROJECT_ID', '')
         def PINECONE_HOST_URL = properties.getProperty('PINECONE_HOST_URL', '')
+        def GOOGLE_SHEETS_API_KEY = properties.getProperty('GOOGLE_SHEETS_API_KEY', '')
+        def GOOGLE_SHEET_ID = properties.getProperty('GOOGLE_SHEET_ID', '')
+        def GOOGLE_CLIENT_ID = properties.getProperty('GOOGLE_CLIENT_ID', '')
 
         buildConfigField "String", "OPENAI_API_KEY", "\"${OPENAI_API_KEY}\""
         buildConfigField "String", "PINECONE_API_KEY", "\"${PINECONE_API_KEY}\""
@@ -31,6 +36,9 @@ android {
         buildConfigField "String", "PINECONE_ENVIRONMENT", "\"${PINECONE_ENVIRONMENT}\""
         buildConfigField "String", "OPENAI_PROJECT_ID", "\"${OPENAI_PROJECT_ID}\""
         buildConfigField "String", "PINECONE_HOST_URL", "\"${PINECONE_HOST_URL}\""
+        buildConfigField "String", "GOOGLE_SHEETS_API_KEY", "\"${GOOGLE_SHEETS_API_KEY}\""
+        buildConfigField "String", "GOOGLE_SHEET_ID", "\"${GOOGLE_SHEET_ID}\""
+        buildConfigField "String", "GOOGLE_CLIENT_ID", "\"${GOOGLE_CLIENT_ID}\""
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -65,6 +73,7 @@ android {
     packaging {
         resources {
             excludes += '/META-INF/{AL2.0,LGPL2.1}'
+            excludes += '/META-INF/DEPENDENCIES'
             pickFirsts += 'META-INF/gradle/incremental.annotation.processors'
         }
     }
@@ -85,11 +94,16 @@ dependencies {
     def room_version = "2.6.1"
     def compose_bom_version = "2024.02.00"
     def arch_version = "2.2.0"
+    def nav_version = "2.7.7"
+    def hilt_version = "2.50"
 
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation platform("org.jetbrains.kotlin:kotlin-bom:${rootProject.ext.kotlin_version}")
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.7.0'
     implementation 'androidx.activity:activity-compose:1.8.2'
+    
+    // Navigation
+    implementation "androidx.navigation:navigation-compose:$nav_version"
     
     // Compose
     implementation platform("androidx.compose:compose-bom:$compose_bom_version")
@@ -118,14 +132,21 @@ dependencies {
     // Coroutines
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3'
     
     // ViewModel
     implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0'
     implementation 'androidx.lifecycle:lifecycle-runtime-compose:2.7.0'
     
-    // Dagger
-    implementation 'com.google.dagger:dagger:2.50'
-    ksp 'com.google.dagger:dagger-compiler:2.50'
+    // Hilt
+    implementation "com.google.dagger:hilt-android:$hilt_version"
+    kapt "com.google.dagger:hilt-android-compiler:$hilt_version"
+    implementation 'androidx.hilt:hilt-navigation-compose:1.1.0'
+    
+    // Google Sign In
+    implementation 'com.google.android.gms:play-services-auth:20.7.0'
+    implementation 'com.google.api-client:google-api-client-android:2.2.0'
+    implementation 'com.google.apis:google-api-services-sheets:v4-rev20220927-2.0.0'
     
     // Testing
     testImplementation 'junit:junit:4.13.2'

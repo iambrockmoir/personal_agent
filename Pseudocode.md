@@ -1,5 +1,75 @@
 # Pseudocode
 
+# Pseudocode
+
+## Overview
+This pseudocode outlines the core functionality for the MVP, including voice memo recording, transcription, and saving transcriptions. Below, the new **Find Todos** feature is added as an extension.
+
+---
+
+### Existing Core Flow
+
+```plaintext
+function onRecordButtonClicked():
+    startAudioRecording()               // Begins capturing audio from device microphone
+
+function onStopRecordingButtonClicked():
+    stopAudioRecording()                // Ends audio capture
+    userChoice = showDialog("Keep or Delete?")
+
+    if userChoice == "KEEP":
+        audioData = getRecordedAudio()  // Retrieve the raw audio data
+        transcription = callWhisperAPI(audioData)
+        displayTranscription(transcription)
+    else if userChoice == "DELETE":
+        discardRecordedAudio()          // Clean up temporary audio files
+        showMessage("Recording discarded")
+
+function onSaveButtonClicked():
+    text = getTranscriptionFromUI()     // Retrieve text from the app UI
+    storeInPinecone(text)
+    showConfirmation("Transcript saved successfully")
+
+function callWhisperAPI(audioData):
+    response = whisperApi.transcribe(audioData)
+    return response.transcription       // Return the raw text
+
+function storeInPinecone(text):
+    vector = convertTextToVector(text)
+    pineconeClient.insert(
+        vector,
+        metadata={ "transcript": text }
+    )
+
+---
+
+###  New Feature: Find Todos
+
+function onFindTodosButtonClicked(transcript):
+    // Send the transcript to OpenAI with a prompt to extract todos.
+    todosJSON = callFindTodosAPI(transcript)
+    todos = parseJSON(todosJSON)
+    displayEditableTodos(todos)        // Display todos in an editable list for user modifications
+
+function callFindTodosAPI(transcript):
+    prompt = "Extract a list of todo items with best time estimates from the following transcript. " +
+             "Respond in JSON format as { \"todos\": [ { \"item\": \"...\", \"timeEstimate\": \"...\" } ] }.\n" +
+             transcript
+    response = openAIClient.sendPrompt(prompt)
+    return response.jsonData
+
+function onSaveTodosButtonClicked():
+    todos = getUserModifiedTodos()       // Get the edited todo list from the UI
+    sendTodosToGoogleSheets(todos)       // Record todos in the target Google Sheet
+    showConfirmation("Todos recorded to Google Sheets")
+    navigateBackToTranscripts()          // Return to the transcripts listing
+
+function navigateBackToTranscripts():
+    // Navigate back to the transcripts screen
+    navigationController.navigate(Screen.VoiceMemo.route)
+
+**** Original Pseudocode.md for reference ****
+
 ## Overview
 Below is a high-level pseudocode outline demonstrating how the Android app handles recording, transcription, discarding, and saving transcripts.
 

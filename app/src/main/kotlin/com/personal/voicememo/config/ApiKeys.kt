@@ -11,4 +11,8 @@ object ApiKeys {
     const val PINECONE_INDEX = BuildConfig.PINECONE_INDEX
     const val PINECONE_ENVIRONMENT = BuildConfig.PINECONE_ENVIRONMENT
     const val PINECONE_HOST_URL = BuildConfig.PINECONE_HOST_URL
+
+    // Google Sheets API configuration
+    const val GOOGLE_SHEETS_API_KEY = BuildConfig.GOOGLE_SHEETS_API_KEY
+    const val GOOGLE_SHEET_ID = BuildConfig.GOOGLE_SHEET_ID
 } 

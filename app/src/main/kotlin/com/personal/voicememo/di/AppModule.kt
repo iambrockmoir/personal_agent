@@ -15,16 +15,32 @@ import com.personal.voicememo.data.repository.VoiceMemoRepository
 import com.personal.voicememo.data.service.OpenAIEmbeddingService
 import com.personal.voicememo.data.service.PineconeStorageService
 import com.personal.voicememo.data.service.WhisperTranscriptionService
+import com.personal.voicememo.network.GoogleSheetsService
+import com.personal.voicememo.network.GoogleSheetsServiceImpl
+import com.personal.voicememo.network.OpenAiServiceImpl
 import com.personal.voicememo.service.AudioRecordingService
+import com.personal.voicememo.service.AudioRecordingServiceImpl
 import com.personal.voicememo.service.OpenAIService as IOpenAIService
 import com.personal.voicememo.service.PineconeService
+import com.personal.voicememo.service.TodoService
+import com.personal.voicememo.service.TodoServiceImpl
 import com.personal.voicememo.service.WhisperService as IWhisperService
 import dagger.Module
 import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
 @Module
+@InstallIn(SingletonComponent::class)
 object AppModule {
+    @Provides
+    @Singleton
+    fun provideContext(@ApplicationContext context: Context): Context {
+        return context
+    }
+
     @Provides
     @Singleton
     fun provideAppDatabase(context: Context): AppDatabase {
@@ -45,19 +61,25 @@ object AppModule {
     @Singleton
     fun provideWhisperTranscriptionService(
         whisperService: WhisperService
-    ): IWhisperService = WhisperTranscriptionService(whisperService)
+    ): IWhisperService {
+        return WhisperTranscriptionService(whisperService)
+    }
 
     @Provides
     @Singleton
     fun provideOpenAIEmbeddingService(
-        openAIService: OpenAIService
-    ): IOpenAIService = OpenAIEmbeddingService(openAIService)
+        openAiService: OpenAIService
+    ): IOpenAIService {
+        return OpenAIEmbeddingService(openAiService)
+    }
 
     @Provides
     @Singleton
     fun providePineconeStorageService(
         pineconeNetworkService: PineconeNetworkService
-    ): PineconeService = PineconeStorageService(pineconeNetworkService)
+    ): PineconeService {
+        return PineconeStorageService(pineconeNetworkService)
+    }
 
     @Provides
     @Singleton
@@ -78,6 +100,23 @@ object AppModule {
     @Provides
     @Singleton
     fun provideAudioRecordingService(context: Context): AudioRecordingService {
-        return AudioRecordingService(context)
+        return AudioRecordingServiceImpl(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideGoogleSheetsServiceImpl(
+        googleSheetsService: GoogleSheetsService
+    ): GoogleSheetsServiceImpl {
+        return GoogleSheetsServiceImpl(googleSheetsService)
+    }
+
+    @Provides
+    @Singleton
+    fun provideTodoService(
+        openAiServiceImpl: OpenAiServiceImpl,
+        googleSheetsServiceImpl: GoogleSheetsServiceImpl
+    ): TodoService {
+        return TodoServiceImpl(openAiServiceImpl, googleSheetsServiceImpl)
     }
 } 

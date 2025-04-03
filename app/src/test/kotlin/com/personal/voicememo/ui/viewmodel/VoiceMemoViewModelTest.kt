@@ -19,6 +19,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.io.File
+import java.nio.file.Files
 import java.util.*
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -34,6 +35,7 @@ class VoiceMemoViewModelTest {
     private lateinit var repository: VoiceMemoRepository
     private lateinit var audioService: AudioRecordingService
     private lateinit var context: Context
+    private lateinit var testDir: File
     private val testDispatcher = UnconfinedTestDispatcher()
 
     @Before
@@ -43,6 +45,10 @@ class VoiceMemoViewModelTest {
         context = mockk(relaxed = true)
         repository = mockk(relaxed = true)
         audioService = mockk(relaxed = true)
+        
+        // Create a real test directory using the recommended approach
+        testDir = Files.createTempDirectory("test_dir").toFile()
+        every { context.getExternalFilesDir(null) } returns testDir
         
         coEvery { repository.getAllMemos() } returns Result.Success(emptyList())
         
@@ -56,36 +62,35 @@ class VoiceMemoViewModelTest {
     @After
     fun tearDown() {
         Dispatchers.resetMain()
+        unmockkAll()
+        testDir.deleteRecursively() // Clean up test directory
     }
 
     @Test
     fun `startRecording updates isRecording state`() = runTest {
         // Given
-        val testDir = File("/test")
-        every { context.getExternalFilesDir(null) } returns testDir
         every { audioService.startRecording(any()) } just Runs
 
         // When
         viewModel.startRecording()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         // Then
         assertNotNull(viewModel.isRecording.value)
         assertEquals(true, viewModel.isRecording.value)
-        verify { audioService.startRecording(any()) }
+        verify { audioService.startRecording(match { it.endsWith(".m4a") }) }
     }
 
     @Test
     fun `stopRecording updates isRecording state and saves memo`() = runTest {
         // Given
-        val testDir = File("/test")
-        val recordingFile = File(testDir, "recording.m4a")
-        every { context.getExternalFilesDir(null) } returns testDir
+        val recordingPath = testDir.resolve("recording.m4a").absolutePath
         every { audioService.stopRecording() } just Runs
-        every { audioService.getCurrentFilePath() } returns recordingFile.absolutePath
+        every { audioService.getCurrentFilePath() } returns recordingPath
 
         val memo = VoiceMemo(
             id = 1L,
-            audioFilePath = recordingFile.absolutePath,
+            audioFilePath = recordingPath,
             createdAt = Date()
         )
         val transcribedMemo = memo.copy(transcription = "Test transcription")
@@ -117,7 +122,7 @@ class VoiceMemoViewModelTest {
         // Given
         val memo = VoiceMemo(
             id = 1L,
-            audioFilePath = "/test/audio.m4a",
+            audioFilePath = testDir.resolve("audio.m4a").absolutePath,
             createdAt = Date()
         )
         coEvery { repository.deleteMemo(memo.id) } returns Result.Success(Unit)

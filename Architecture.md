@@ -1,50 +1,61 @@
+**Architecture.md**
+
 # Architecture
 
 ## High-Level Diagram
 
-+----------------+ +----------------------+
-| Android Device | | Pinecone (Storage) | | (UI & Logic) | -----> | Vector DB Index | +----------------+ +----------------------+ | v Audio Data | +-> [Transcription Module - Whisper API/Library] returns text | +-> [UI Display & Optional Edit] | +-> [Storage: Pinecone Insert]
++----------------+ +----------------------+ | Android Device | | Pinecone Storage | | (UI & Logic) | -----> | (Transcriptions Only)| +----------------+ +----------------------+ | | (New Feature: Find Todos) v +----------------+ +----------------------+ | Todo Extraction| | Google Sheets Module | | Module | -----> | (Todo Storage) | +----------------+ +----------------------+
 
-markdown
-Copy
-Edit
 
 ## Components
 
+### Existing Components
 1. **UI Layer (Android)**
-   - **MainActivity** / **RecordActivity**: Handles button interactions, audio recording, and user prompts.
-   - **Fragments or Views**: Could include separate fragments for recording and display, depending on app structure.
+   - **MainActivity**: Manages recording, transcription, and file management.
+   - **VoiceMemoScreen**: For displaying recordings and transcriptions.
+   - **TodoScreen**: For displaying and managing todos extracted from transcripts.
 
 2. **Audio Capture Module**
-   - Uses Android's `MediaRecorder` or `AudioRecord` to record audio.
-   - Stores temporary audio file(s) in app-specific storage.
+   - Uses Android's `MediaRecorder` to capture audio.
+   - Stores temporary audio files in app-specific storage.
 
 3. **Transcription Module**
-   - **Option A (Remote)**: A small API client wrapper that sends audio data to OpenAI Whisper or an external server hosting Whisper.
-   - **Option B (Local)**: Integrated library for on-device inference (e.g., [whisper.cpp](https://github.com/ggerganov/whisper.cpp)).
+   - Sends audio data to OpenAI Whisper for transcription.
 
 4. **Data Storage Module**
-   - **PineconeClient**: A networking layer to connect to Pinecone.
-   - **Embedding Service** (Optional in MVP): Convert text to vector embeddings before Pinecone insertion.
+   - **PineconeClient**: Inserts transcribed text (converted to vector embeddings) into Pinecone.
 
-5. **Testing & Deployment**
-   - **Testing**: JUnit for unit tests, possibly Espresso for UI tests.
-   - **Deployment**: 
-     - **Local**: Sideload the APK onto your Pixel 3.
-     - **Alternative**: Internal Google Play test track for quick updates.
+### New Components (MVP Level)
+1. **Todo Extraction Module**
+   - **Function**: Sends a selected transcript to OpenAI with a prompt to extract todo items.
+   - **Output**: Receives a JSON object formatted as:
+     ```json
+     { "todos": [ { "item": "Buy groceries", "timeEstimate": "30 minutes" }, ... ] }
+     ```
+   - **Integration**: This module is separate from the transcription process and focuses solely on actionable tasks.
+
+2. **Google Sheets Integration Module**
+   - **Function**: Records the final, user-modified todo items into a designated Google Sheet.
+   - **Note**: For the MVP, this is the primary method for storing and later processing todos manually.
 
 ## Data Flow
-1. **Record**: User taps record → audio data is captured.
-2. **Stop & Prompt**: User chooses to keep or discard.
-3. **Transcribe**: If kept, audio is sent to Whisper for transcription.
-4. **Display & Edit**: The text is shown on-screen.
-5. **Store**: When saved, text is (optionally embedded) and inserted into Pinecone.
-6. **Index & Future Use**: The text is now searchable and can be extended with future AI functionalities.
+
+1. **Recording & Transcription Flow** (Existing)
+   - User records audio → Chooses to keep recording → Audio sent to Whisper → Transcription displayed → (Optionally) saved in Pinecone.
+
+2. **Find Todos Flow** (New)
+   - User selects an existing transcript.
+   - The transcript is sent to the Todo Extraction Module.
+   - OpenAI processes the transcript and returns a JSON list of todos.
+   - The editable todo list is displayed for user review (add/edit/delete).
+   - Upon confirmation, the final todo list is sent to the Google Sheets Integration Module.
+   - The todos are recorded into the target Google Sheet for further processing.
+   - After saving, the UI navigates back to the transcripts listing.
 
 ## Extensibility Notes
-- Code structure should remain modular to allow adding new "actions" on the transcribed text (e.g., convert to social media post, link images, create tasks).
-- Networking calls can be expanded to incorporate other AI services like Anthropic.
-- Additional data layers (like Supabase or local SQLite) can be integrated if offline support or more robust data retrieval is required.
+- The system is designed to be modular so that new AI-powered features (like converting transcripts to social media posts or tasks) can be added later.
+- While Pinecone remains the storage for transcriptions, the todos are managed separately through Google Sheets, reflecting the different use cases.
+- Given the MVP stage, the focus is on simplicity and ease of use for personal productivity.
 
 ## Planned Improvements
 

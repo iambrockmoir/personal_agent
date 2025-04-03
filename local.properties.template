@@ -15,4 +15,9 @@ OPENAI_PROJECT_ID=your_openai_project_id
 PINECONE_API_KEY=your_pinecone_api_key
 PINECONE_INDEX=your_pinecone_index
 PINECONE_ENVIRONMENT=your_pinecone_environment
-PINECONE_HOST_URL=your_pinecone_host_url 
+PINECONE_HOST_URL=your_pinecone_host_url
+
+# Google Sheets Configuration
+GOOGLE_SHEETS_API_KEY=your_google_sheets_api_key
+GOOGLE_SHEET_ID=your_google_sheet_id
+GOOGLE_CLIENT_ID=your_google_client_id 

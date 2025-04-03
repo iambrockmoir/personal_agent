@@ -8,10 +8,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -19,16 +18,24 @@ import com.personal.voicememo.data.models.VoiceMemo
 import com.personal.voicememo.ui.viewmodel.VoiceMemoViewModel
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
+/**
+ * The main screen for recording and managing voice memos.
+ * 
+ * @param viewModel The ViewModel that manages the state and business logic for voice memos
+ * @param onTranscriptComplete Callback function that is called when a transcript is ready for todo extraction
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VoiceMemoScreen(
-    viewModel: VoiceMemoViewModel
+    viewModel: VoiceMemoViewModel,
+    onTranscriptComplete: (String) -> Unit
 ) {
-    val memos by viewModel.memos.observeAsState(emptyList())
-    val isRecording by viewModel.isRecording.observeAsState(false)
-    val error by viewModel.error.observeAsState()
-    val processingState by viewModel.processingState.observeAsState(VoiceMemoViewModel.ProcessingState.Idle)
+    val isRecording by viewModel.isRecording.collectAsStateWithLifecycle()
+    val memos by viewModel.memos.collectAsStateWithLifecycle()
+    val error by viewModel.error.collectAsStateWithLifecycle()
+    val processingState by viewModel.processingState.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -45,21 +52,22 @@ fun VoiceMemoScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    if (isRecording) {
-                        viewModel.stopRecording()
-                    } else {
-                        viewModel.startRecording()
-                    }
-                },
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                enabled = processingState == VoiceMemoViewModel.ProcessingState.Idle
-            ) {
-                Icon(
-                    imageVector = if (isRecording) Icons.Default.Stop else Icons.Default.Mic,
-                    contentDescription = if (isRecording) "Stop recording" else "Start recording"
-                )
+            if (processingState == VoiceMemoViewModel.ProcessingState.Idle) {
+                FloatingActionButton(
+                    onClick = {
+                        if (isRecording) {
+                            viewModel.stopRecording()
+                        } else {
+                            viewModel.startRecording()
+                        }
+                    },
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Icon(
+                        imageVector = if (isRecording) Icons.Default.Stop else Icons.Default.Mic,
+                        contentDescription = if (isRecording) "Stop recording" else "Start recording"
+                    )
+                }
             }
         }
     ) { padding ->
@@ -68,105 +76,136 @@ fun VoiceMemoScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(memos) { memo ->
-                    MemoItem(
-                        memo = memo,
-                        onDelete = { viewModel.deleteMemo(memo) }
-                    )
-                }
-            }
-
-            // Processing state indicator
-            AnimatedVisibility(
-                visible = processingState != VoiceMemoViewModel.ProcessingState.Idle,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 88.dp)
-            ) {
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    ),
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .padding(16.dp)
-                            .fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                        Text(
-                            text = when (processingState) {
-                                VoiceMemoViewModel.ProcessingState.Saving -> "Saving recording..."
-                                VoiceMemoViewModel.ProcessingState.Transcribing -> "Transcribing audio..."
-                                VoiceMemoViewModel.ProcessingState.Vectorizing -> "Processing for search..."
-                                else -> ""
-                            },
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
-                }
-            }
-
-            error?.let {
-                Snackbar(
+            if (error != null) {
+                Text(
+                    text = error!!,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier
+                        .align(Alignment.TopCenter)
                         .padding(16.dp)
-                        .align(Alignment.BottomCenter),
-                    action = {
-                        TextButton(onClick = { /* Clear error */ }) {
-                            Text("Dismiss")
+                )
+            }
+
+            when (processingState) {
+                VoiceMemoViewModel.ProcessingState.Idle -> {
+                    if (memos.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "No memos yet. Start recording to create one.",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            items(memos) { memo ->
+                                MemoCard(
+                                    memo = memo,
+                                    onDelete = { viewModel.deleteMemo(memo) },
+                                    onTranscriptComplete = onTranscriptComplete
+                                )
+                            }
                         }
                     }
-                ) {
-                    Text(it)
+                }
+                VoiceMemoViewModel.ProcessingState.Saving -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Saving memo...")
+                    }
+                }
+                VoiceMemoViewModel.ProcessingState.Transcribing -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Transcribing audio...")
+                    }
+                }
+                VoiceMemoViewModel.ProcessingState.Vectorizing -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Processing memo...")
+                    }
                 }
             }
         }
     }
 }
 
+/**
+ * A card that displays a voice memo with its transcription and actions.
+ * 
+ * @param memo The voice memo to display
+ * @param onDelete Callback function that is called when the delete button is clicked
+ * @param onTranscriptComplete Callback function that is called when the create todo button is clicked
+ */
 @Composable
-fun MemoItem(
+private fun MemoCard(
     memo: VoiceMemo,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onTranscriptComplete: (String) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(16.dp)
         ) {
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
+            Text(
+                text = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault())
+                    .format(memo.createdAt),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            if (memo.transcription != null) {
                 Text(
-                    text = memo.transcription ?: "Transcribing...",
-                    style = MaterialTheme.typography.bodyLarge
+                    text = memo.transcription!!,
+                    style = MaterialTheme.typography.bodyMedium
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Button(
+                        onClick = { onTranscriptComplete(memo.transcription!!) }
+                    ) {
+                        Icon(
+                            Icons.Default.List,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Create Todo")
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Delete memo"
+                        )
+                    }
+                }
+            } else {
                 Text(
-                    text = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault())
-                        .format(memo.createdAt),
-                    style = MaterialTheme.typography.bodySmall
+                    text = "Transcribing...",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, "Delete memo")
             }
         }
     }

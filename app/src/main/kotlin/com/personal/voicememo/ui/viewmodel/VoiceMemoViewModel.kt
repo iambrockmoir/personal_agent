@@ -2,18 +2,23 @@ package com.personal.voicememo.ui.viewmodel
 
 import android.content.Context
 import android.util.Log
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.personal.voicememo.data.models.VoiceMemo
 import com.personal.voicememo.data.repository.VoiceMemoRepository
 import com.personal.voicememo.service.AudioRecordingService
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
 import java.util.Date
+import javax.inject.Inject
 
-class VoiceMemoViewModel(
+@HiltViewModel
+class VoiceMemoViewModel @Inject constructor(
     private val context: Context,
     private val voiceMemoRepository: VoiceMemoRepository,
     private val audioRecordingService: AudioRecordingService
@@ -22,20 +27,26 @@ class VoiceMemoViewModel(
         private const val TAG = "VoiceMemoViewModel"
     }
 
-    private val _isRecording = MutableLiveData<Boolean>()
-    val isRecording: LiveData<Boolean> = _isRecording
+    private val _isRecording = MutableStateFlow(false)
+    val isRecording: StateFlow<Boolean> = _isRecording.asStateFlow()
 
-    private val _memos = MutableLiveData<List<VoiceMemo>>()
-    val memos: LiveData<List<VoiceMemo>> = _memos
+    private val _memos = MutableStateFlow<List<VoiceMemo>>(emptyList())
+    val memos: StateFlow<List<VoiceMemo>> = _memos.asStateFlow()
 
-    private val _error = MutableLiveData<String>()
-    val error: LiveData<String> = _error
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
 
-    private val _isLoading = MutableLiveData<Boolean>()
-    val isLoading: LiveData<Boolean> = _isLoading
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    private val _processingState = MutableLiveData<ProcessingState>()
-    val processingState: LiveData<ProcessingState> = _processingState
+    private val _processingState = MutableStateFlow<ProcessingState>(ProcessingState.Idle)
+    val processingState: StateFlow<ProcessingState> = _processingState.asStateFlow()
+
+    private val _hasRecordPermission = MutableStateFlow(false)
+    val hasRecordPermission: StateFlow<Boolean> = _hasRecordPermission.asStateFlow()
+
+    private val _isSignedIn = MutableStateFlow(false)
+    val isSignedIn: StateFlow<Boolean> = _isSignedIn.asStateFlow()
 
     sealed class ProcessingState {
         object Idle : ProcessingState()
@@ -46,7 +57,6 @@ class VoiceMemoViewModel(
 
     init {
         loadMemos()
-        _processingState.value = ProcessingState.Idle
     }
 
     private fun loadMemos() {
@@ -74,7 +84,8 @@ class VoiceMemoViewModel(
         viewModelScope.launch {
             try {
                 val outputFile = File(context.getExternalFilesDir(null), "recording_${System.currentTimeMillis()}.m4a")
-                audioRecordingService.startRecording(outputFile)
+                outputFile.createNewFile()
+                audioRecordingService.startRecording(outputFile.absolutePath)
                 _isRecording.value = true
             } catch (e: Exception) {
                 Log.e(TAG, "Error starting recording", e)
@@ -86,10 +97,10 @@ class VoiceMemoViewModel(
     fun stopRecording() {
         viewModelScope.launch {
             try {
+                val filePath = audioRecordingService.getCurrentFilePath()!!
                 audioRecordingService.stopRecording()
                 _isRecording.value = false
-                val audioFile = File(audioRecordingService.getCurrentFilePath()!!)
-                saveMemo(audioFile)
+                saveMemo(File(filePath))
             } catch (e: Exception) {
                 Log.e(TAG, "Error stopping recording", e)
                 _error.value = "Failed to stop recording: ${e.message}"
@@ -167,5 +178,31 @@ class VoiceMemoViewModel(
                 _error.value = "Failed to delete memo: ${e.message}"
             }
         }
+    }
+
+    fun onRecordPermissionGranted() {
+        _hasRecordPermission.value = true
+    }
+
+    fun onGoogleSignInSuccess(account: GoogleSignInAccount) {
+        Log.d(TAG, "Google Sign-In success handled for account: ${account.email}")
+        _isSignedIn.value = true
+        _error.value = null
+        
+        if (!_hasRecordPermission.value) {
+            Log.d(TAG, "Requesting recording permission after successful sign-in")
+        }
+    }
+
+    fun setError(message: String?) {
+        Log.e(TAG, "Setting error: $message")
+        _error.value = message
+    }
+
+    fun signOut() {
+        Log.d(TAG, "Signing out user")
+        _isSignedIn.value = false
+        _hasRecordPermission.value = false
+        _error.value = null
     }
 } 
