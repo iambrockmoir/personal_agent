@@ -1,8 +1,9 @@
 package com.personal.voicememo.ui.screen
 
+import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Save
@@ -10,12 +11,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
 import com.personal.voicememo.domain.TodoItem
 import com.personal.voicememo.ui.component.TodoItemCard
 import com.personal.voicememo.ui.viewmodel.TodoViewModel
 import com.personal.voicememo.ui.viewmodel.TodoUiState
+
+private const val TAG = "TodoScreen"
 
 /**
  * The screen for creating and managing todos extracted from transcripts.
@@ -33,19 +38,64 @@ fun TodoScreen(
     onSaveComplete: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val isActive = remember { mutableStateOf(true) }
+    var hasError by remember { mutableStateOf(false) }
+
+    // Handle lifecycle events
+    DisposableEffect(lifecycle) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> isActive.value = true
+                Lifecycle.Event.ON_PAUSE -> isActive.value = false
+                else -> {}
+            }
+        }
+        lifecycle.addObserver(observer)
+        onDispose {
+            lifecycle.removeObserver(observer)
+        }
+    }
+
     val uiState by viewModel.uiState.collectAsState()
     val todos by viewModel.todos.collectAsState()
 
     // Extract todos from transcript when it changes
     LaunchedEffect(transcript) {
-        transcript?.let { viewModel.extractTodos(it) }
+        transcript?.let { 
+            try {
+                viewModel.extractTodos(it)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error extracting todos from transcript", e)
+                hasError = true
+            }
+        }
     }
 
     // Navigate back when todos are successfully saved
     LaunchedEffect(uiState) {
-        if (uiState is TodoUiState.Success && todos.isNotEmpty()) {
-            onSaveComplete()
+        if (uiState is TodoUiState.Success && todos.isEmpty()) {
+            try {
+                onSaveComplete()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error during save completion callback", e)
+                hasError = true
+            }
         }
+    }
+
+    if (hasError) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Error displaying todo list",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+        return
     }
 
     Scaffold(
@@ -54,7 +104,14 @@ fun TodoScreen(
                 title = { Text("Todos") },
                 actions = {
                     IconButton(
-                        onClick = { viewModel.saveTodos() }
+                        onClick = { 
+                            try {
+                                viewModel.saveTodos()
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error saving todos", e)
+                                hasError = true
+                            }
+                        }
                     ) {
                         Icon(Icons.Default.Save, contentDescription = "Save Todos")
                     }
@@ -63,7 +120,14 @@ fun TodoScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { viewModel.addTodo(TodoItem("New Todo", "1 hour")) }
+                onClick = { 
+                    try {
+                        viewModel.addTodo(TodoItem("New Todo", "1 hour"))
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error adding new todo", e)
+                        hasError = true
+                    }
+                }
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Todo")
             }
@@ -89,10 +153,20 @@ fun TodoScreen(
                         TodoList(
                             todos = todos,
                             onUpdateTodo = { index, updatedTodo ->
-                                viewModel.updateTodo(index, updatedTodo)
+                                try {
+                                    viewModel.updateTodo(index, updatedTodo)
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Error updating todo at index $index", e)
+                                    hasError = true
+                                }
                             },
                             onDeleteTodo = { index ->
-                                viewModel.deleteTodo(index)
+                                try {
+                                    viewModel.deleteTodo(index)
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Error deleting todo at index $index", e)
+                                    hasError = true
+                                }
                             }
                         )
                     }
@@ -167,16 +241,18 @@ private fun TodoList(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(todos) { todo ->
-            TodoItemCard(
-                todo = todo,
-                onUpdate = { updatedTodo ->
-                    onUpdateTodo(todos.indexOf(todo), updatedTodo)
-                },
-                onDelete = {
-                    onDeleteTodo(todos.indexOf(todo))
-                }
-            )
+        itemsIndexed(
+            items = todos,
+            key = { index, todo -> "${todo.item}_${todo.timeEstimate}_$index" }
+        ) { index, todo ->
+            key(todo.item, todo.timeEstimate, index) {
+                TodoItemCard(
+                    todo = todo,
+                    index = index,
+                    onUpdate = onUpdateTodo,
+                    onDelete = onDeleteTodo
+                )
+            }
         }
     }
 } 

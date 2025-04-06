@@ -47,7 +47,17 @@ class OpenAiServiceImpl @Inject constructor(
             val jsonResponse = response.choices[0].message.content
             Log.d(TAG, "Received JSON response: $jsonResponse")
             
-            return JsonParser.parseTodoList(jsonResponse)
+            // Clean the JSON response before parsing
+            val cleanJson = jsonResponse.replace("```json", "")
+                .replace("```", "")
+                .trim()
+                .lines()
+                .filter { it.isNotBlank() }
+                .joinToString("\n")
+            
+            Log.d(TAG, "Cleaned JSON response: $cleanJson")
+            
+            return JsonParser.parseTodoList(cleanJson)
         } catch (e: Exception) {
             Log.e(TAG, "Error extracting todos: ${e.message}", e)
             throw e
@@ -62,13 +72,15 @@ class OpenAiServiceImpl @Inject constructor(
      */
     private fun buildExtractionPrompt(transcript: String): String {
         return """
-            Extract a list of todo items with best time estimates from the following transcript.
-            Respond in JSON format as { "todos": [ { "item": "...", "timeEstimate": "..." } ] }.
+            Extract a list of todo items with best time estimates and project/area context from the following transcript.
+            Respond in JSON format as { "todos": [ { "item": "...", "timeEstimate": "...", "project": "..." } ] }.
             Only include clear, actionable items from the transcript.
             For each item:
             - Make it specific and actionable
             - Provide a realistic time estimate
             - Format time estimates consistently (e.g., "30 minutes", "2 hours", "1 day")
+            - Include the project or area context if mentioned (e.g., "Work", "Personal", "Home")
+            - If no project is mentioned, use "Personal" as default
             
             Transcript:
             $transcript
@@ -94,7 +106,8 @@ class OpenAiServiceImpl @Inject constructor(
                             "todos": [
                                 {
                                     "item": "Specific, actionable task",
-                                    "timeEstimate": "Realistic time estimate"
+                                    "timeEstimate": "Realistic time estimate",
+                                    "project": "Project or area context"
                                 }
                             ]
                         }

@@ -100,6 +100,7 @@ class GoogleSheetsServiceImpl @Inject constructor(
             listOf(
                 todo.item,
                 todo.timeEstimate,
+                todo.project,
                 System.currentTimeMillis().toString() // Timestamp
             )
         }

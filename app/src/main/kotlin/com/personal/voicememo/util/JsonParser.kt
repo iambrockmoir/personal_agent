@@ -11,7 +11,9 @@ import com.personal.voicememo.domain.TodoItem
  * Utility class for parsing JSON responses from OpenAI
  */
 object JsonParser {
-    private val gson = Gson()
+    private val gson = Gson().newBuilder()
+        .setLenient()
+        .create()
 
     /**
      * Parses a JSON string from OpenAI into a TodoList
@@ -24,11 +26,19 @@ object JsonParser {
             throw IllegalArgumentException("JSON string cannot be empty")
         }
 
-        Log.d("JsonParser", "Attempting to parse JSON: $json")
+        // Remove markdown code block markers and any other non-JSON content
+        val cleanJson = json.replace("```json", "")
+            .replace("```", "")
+            .trim()
+            .lines()
+            .filter { it.isNotBlank() }
+            .joinToString("\n")
+
+        Log.d("JsonParser", "Attempting to parse JSON: $cleanJson")
         
         return try {
             // Try parsing as object with todos field first
-            val jsonElement = GsonJsonParser.parseString(json)
+            val jsonElement = GsonJsonParser.parseString(cleanJson)
             
             when {
                 jsonElement.isJsonObject -> {
@@ -68,7 +78,8 @@ object JsonParser {
             
             return TodoItem(
                 item = jsonObject.get("item").asString,
-                timeEstimate = jsonObject.get("timeEstimate").asString
+                timeEstimate = jsonObject.get("timeEstimate").asString,
+                project = if (jsonObject.has("project")) jsonObject.get("project").asString else "Personal"
             )
         } catch (e: Exception) {
             throw IllegalArgumentException("Invalid todo item format", e)
